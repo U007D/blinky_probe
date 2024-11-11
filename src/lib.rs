@@ -1,5 +1,14 @@
-// Safety-critical application lints
-pub mod error;
-pub mod shared_consts;
+//! Share the types and modules defined below across the crate.
+#![no_std]
+#![no_main]
 
-pub use error::{Error, Result};
+
+mod button;
+pub mod error;
+mod led;
+mod never;
+pub mod shared_const;
+
+pub use button::{Button, PressKind};
+pub use led::{Led, LedMode};
+pub use never::Never;
