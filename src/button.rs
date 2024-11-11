@@ -23,35 +23,31 @@ impl Button<'_> {
         }
     }
 
-    pub async fn wait_for_press(&mut self) -> &mut Self {
+    pub async fn wait_for_press(&mut self) -> PressKind {
         // Wait for the voltage level on this pin to go high (button has been pressed)
         self.wait_for_high().await;
 
-        // Is this a short press or a long one?
-        self.press_kind = {
-            // Start the "stopwatch" to determine how long the button was held down
-            let start_of_press = Instant::now();
-            // Sometimes the start (and end) of a press can be "noisy" (fluctuations between
-            // "pressed" and "unpressed" states on the microsecond time scale as the physical
-            // contactors move from not touching through "almost touching" to fully touching (or
-            // vice-versa).  We're not going to listen to the button's state at all during the
-            // noisy, fluctuating "almost touching" state.  This is called "debouncing".
-            self.debounce_delay().await;
+        // Start the "stopwatch" to determine how long the button was held down
+        let start_of_press = Instant::now();
+        // Sometimes the start (and end) of a press can be "noisy" (fluctuations between
+        // "pressed" and "unpressed" states on the microsecond time scale as the physical
+        // contactors move from not touching through "almost touching" to fully touching (or
+        // vice-versa).  We're not going to listen to the button's state at all during the
+        // noisy, fluctuating "almost touching" state.  This is called "debouncing".
+        self.debounce_delay().await;
 
-            // The button is now fully depressed.  Wait for the button to be released, and then
-            // we'll know how long the user pressed it for.
-            self.wait_for_falling_edge().await;
-            // Stop the "stopwatch" at the first sign of button release.
-            let press_duration = start_of_press.elapsed();
-            // Debounce the button's release.
-            self.debounce_delay().await;
+        // The button is now fully depressed.  Wait for the button to be released, and then
+        // we'll know how long the user pressed it for.
+        self.wait_for_falling_edge().await;
+        // Stop the "stopwatch" now that the button is being released.
+        let press_duration = start_of_press.elapsed();
+        // Debounce the button's release.
+        self.debounce_delay().await;
 
-            // defmt::info!("Button press duration: {}ms", press_duration.as_millis());
+        // defmt::info!("Button press duration: {}ms", press_duration.as_millis());
 
-            // Determine if the duration was a short press or a long press
-            press_duration.into()
-        };
-        self
+        // Determine if the duration was a short press or a long press
+        press_duration.into()
     }
 
     /// Determine if the button press is classified as a `PressKind::Short` or `PressKind::Long`.

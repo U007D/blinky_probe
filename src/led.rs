@@ -1,7 +1,7 @@
 mod mode;
 
 use embassy_executor::{SpawnError, Spawner};
-use embassy_futures::select::select;
+use embassy_futures::select::{select, Either};
 use embassy_rp::gpio::{AnyPin, Level, Output};
 use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex, signal::Signal};
 use embassy_time::Timer;
@@ -33,7 +33,7 @@ impl Led {
             mode: LedMode::default(),
             sender: signal,
         };
-        spawner.spawn(led_driver(pin, &signal))?;
+        spawner.spawn(led_driver(pin, &signal, led.mode))?;
         Ok(led)
     }
 
@@ -48,7 +48,7 @@ impl Led {
             old_mode.next().into_iter().chain(LedMode::first()).next().unwrap_or_else(|| {
                 unreachable!("Internal error: Non-empty iterator failed to provide an element (!)")
             });
-
+        self.sender.signal(self.mode);
         old_mode
     }
 
@@ -74,39 +74,46 @@ impl Led {
 /// iv) does not consume any computing cycles when "yield"ing.  Important for battery-powered and
 ///     limited-compute-capability devices.
 #[embassy_executor::task]
-async fn led_driver(pin: AnyPin, receiver: &'static Signal<CriticalSectionRawMutex, LedMode>) -> ! {
+async fn led_driver(
+    pin: AnyPin,
+    receiver: &'static Signal<CriticalSectionRawMutex, LedMode>,
+    initial_mode: LedMode,
+) -> ! {
     // Define `led_pin` as an `Output` pin (meaning the microcontroller will supply 3.3V when its
     // value is set to `Level::High`.
     let mut led_pin = Output::new(pin, Level::Low);
+    let mut led_mode = initial_mode;
     // Drive the LED's behavior forever.
     loop {
         // Check the `Signal` (like a `Channel` or "hotline"; a `Signal`'s messages do not
         // accumulate in a queue or block the sender; instead, the `Signal` will provide only the
         // latest "message" sent to the receiver (if any).  New messages overwrite previously sent
         // unread messages.
-        let led_mode = receiver.wait().await;
         use LedMode as Lm;
-        match led_mode {
+        let res = match led_mode {
             // Flash the LED quickly and wait for the next message.
             Lm::FastFlash => {
                 led_pin.toggle();
-                select(Timer::after_millis(FAST_FLASH_DELAY_IN_MS), receiver.wait()).await;
+                select(Timer::after_millis(FAST_FLASH_DELAY_IN_MS), receiver.wait()).await
             },
             // Flash the LED slowly and wait for the next message.
             Lm::SlowFlash => {
                 led_pin.toggle();
-                select(Timer::after_millis(SLOW_FLASH_DELAY_IN_MS), receiver.wait()).await;
+                select(Timer::after_millis(SLOW_FLASH_DELAY_IN_MS), receiver.wait()).await
             },
             // Leave the LED on continuously and wait for the next message.
             Lm::On => {
                 led_pin.set_high();
-                receiver.wait().await;
+                Either::Second(receiver.wait().await)
             },
             // Turn the LED off and wait for the next message.
             Lm::Off => {
                 led_pin.set_low();
-                receiver.wait().await;
+                Either::Second(receiver.wait().await)
             },
         };
+        if let Either::Second(new_mode) = res {
+            led_mode = new_mode
+        }
     }
 }

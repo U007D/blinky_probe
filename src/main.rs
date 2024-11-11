@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 #![no_std]
 #![no_main]
 
@@ -29,10 +30,10 @@ async fn main_inner(spawner: Spawner) -> Result<Never> {
     let mut button = Button::new(button_pin);
 
     loop {
-        button.wait_for_press().await;
+        let press = button.wait_for_press().await;
 
         use lib::PressKind as Pk;
-        match button.press_kind() {
+        match press {
             Pk::Long => led.set_mode(LedMode::FastFlash).await,
             Pk::Short => led.advance_state().await,
         };
