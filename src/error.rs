@@ -1,11 +1,15 @@
-#[expect(clippy::wildcard_imports, reason = "Ok to use wildcard import on `shared_consts`.")]
-use crate::shared_consts::*;
-use thiserror::Error;
+use derive_more::derive::{Display, Error, From};
 
 pub type Result<T, E = Error> = core::result::Result<T, E>;
 
-#[derive(Debug, Error)]
+/// Define a unified error type for this crate.
+#[derive(Debug, Display, Error, From)]
 pub enum Error {
-    #[error("{}: {}: ", msg::ERR_IO, 0)]
-    Io(#[from] std::io::Error),
+    // `#[error(not(source))]` below tells `derive_more` that `embassy_executor::SpawnError` does
+    // not implement Rust's `core::error::Error` trait.  It should, but Rust's `Error` only recently
+    // moved from `std` (which is not available in bare-metal development) to `core` (which is).
+    // Maybe a future update of `embassy_executor::SpawnError` will implement `core::error::Error`,
+    // making this unnecessary.
+    #[display("{_0:?}")]
+    TaskSpawn(#[error(not(source))] embassy_executor::SpawnError),
 }
