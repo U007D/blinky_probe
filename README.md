@@ -20,7 +20,7 @@ Seattle Rust User Group in November 2024.
 
    ### All platforms:
    i. Install `probe-rs`:
-   `cargo install probe-rs --locked`
+   `cargo install probe-rs-tools --locked`
 
 3. Set up Hardware:  Set up as per [schematic diagram](https://app.cirkitdesigner.com/project/c8efdf17-e924-4550-8c7a-da5c56bd626e)
 
