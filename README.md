@@ -26,7 +26,7 @@ Seattle Rust User Group in November 2024.
 
 4. Teach `rustc` how to compile for the Raspberry Pi Pico's RP2040 processor:
    ```
-   rustup install target thumbv6m-none-eabi
+   rustup target add thumbv6m-none-eabi
    ```
 
 5. Test Your Setup:
